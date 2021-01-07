@@ -1,22 +1,24 @@
 #!/usr/bin/python3
 
 #These are the details For the final form
-firstNameStr = 'Tracy'
-lastNameStr = 'Transfer'
-emailStr = 'tracy.transfer@gmail.com'
-licensePlateStr = 'BGXU31'
-stateStr = 'colorado'
-
-#This is the desired date important month first number last. Does not validate anything - just trusts user
-#Currently does not go to the month - assumes that the month is currently opened in the browser
-dateStr = 'January 9'
-#will try to reserve earlier or equal to the # timeSlot
-#where 1 = 9am; 2 = 11am; 3 <=>1:30pm; 4 <=>2:30pm
-timeSlot = 3
+#firstNameStr = 'Tracy'
+#lastNameStr = 'Transfer'
+#emailStr = 'tracy.transfer@gmail.com'
+#licensePlateStr = 'BGXU31'
+#stateStr = 'colorado'
+#
+##This is the desired date important month first number last. Does not validate anything - just trusts user
+##Currently does not go to the month - assumes that the month is currently opened in the browser
+#dateStr = 'January 9'
+##will try to reserve earlier or equal to the # timeSlot
+##where 1 = 9am; 2 = 11am; 3 <=>1:30pm; 4 <=>2:30pm
+#timeSlot = 3
 
 import re
+import traceback
 
 import time
+import argparse
 from bs4 import BeautifulSoup
 
 # Import webdriver to initialise a browser
@@ -32,39 +34,45 @@ class Reservation:
         self.driver = webdriver.Chrome(r'./chromedriver')
 
         # Launch Chrome and pass the url
-        self.driver.get(self.url)
-        #self.driver.maximize_window()
-        
-        refreshAttemptWait =8 #sec
-        waitForRefreshCompletion = 8#sec
+        while True:
+            try:
+                self.driver.get(self.url)
+                #self.driver.maximize_window()
                 
-        # loop over this process until goal achieved (?)    
-        # now go to the caldnearFrame and press the forwardButton
-        availabilityFlag = False
-        dayAttemptCounter = 1
-        while (not availabilityFlag):
-            self.__goToCalendarIFrame()
-            self.__selectMonth(dateStr)
-            if not self.__clickIfMyDayAvailable(dateStr): #day not available
-                print('Day Not Available, Attempt#: ', dayAttemptCounter)
-                time.sleep(refreshAttemptWait) # <todo>Just a wait time between refreshes
-                self.driver.refresh()
-                time.sleep(waitForRefreshCompletion) #<todo> !! how long to wait until refresh is complete- currently just a number but should ideally change to polling of some element existence https://stackoverflow.com/questions/28026470/python-selenium-wont-wait-for-my-website-to-refresh 
-                dayAttemptCounter +=1
-                
-            else: 
-                print('Day Available!')
-                #now try reserve the slot - currently reserves the earliest available.
-                if (not self.__selectReservationSlotsIfAvailable(timeSlot)) : #slot not available
-                    print('slot not available, Attempt#: ', dayAttemptCounter)
-                    self.driver.refresh()
-                    time.sleep(waitForRefreshCompletion) #<todo> !! how long to wait until refresh is complete- currently just a number but should ideally change to polling of some element existence https://stackoverflow.com/questions/28026470/python-selenium-wont-wait-for-my-website-to-refresh 
-                    dayAttemptCounter +=1
-                else :
-                    print('slot available, filling form')
-                    time.sleep(3)
-                    self.__fillFormAndFinish(firstNameStr, lastNameStr, emailStr, licensePlateStr, stateStr)
-                    availabilityFlag = True
+                refreshAttemptWait =8 #sec
+                waitForRefreshCompletion = 8#sec
+                        
+                # loop over this process until goal achieved (?)    
+                # now go to the caldnearFrame and press the forwardButton
+                dayAttemptCounter = 1
+                while True:
+                    self.__goToCalendarIFrame()
+                    self.__selectMonth(dateStr)
+                    if not self.__clickIfMyDayAvailable(dateStr): #day not available
+                        print('Day Not Available, Attempt#: ', dayAttemptCounter)
+                        time.sleep(refreshAttemptWait) # <todo>Just a wait time between refreshes
+                        self.driver.refresh()
+                        time.sleep(waitForRefreshCompletion) #<todo> !! how long to wait until refresh is complete- currently just a number but should ideally change to polling of some element existence https://stackoverflow.com/questions/28026470/python-selenium-wont-wait-for-my-website-to-refresh 
+                        dayAttemptCounter +=1
+                        
+                    else: 
+                        print('Day Available!')
+                        #now try reserve the slot - currently reserves the earliest available.
+                        if (not self.__selectReservationSlotsIfAvailable(timeSlot)) : #slot not available
+                            print('slot not available, Attempt#: ', dayAttemptCounter)
+                            self.driver.refresh()
+                            time.sleep(waitForRefreshCompletion) #<todo> !! how long to wait until refresh is complete- currently just a number but should ideally change to polling of some element existence https://stackoverflow.com/questions/28026470/python-selenium-wont-wait-for-my-website-to-refresh 
+                            dayAttemptCounter +=1
+                        else :
+                            print('slot available, filling form')
+                            time.sleep(3)
+                            self.__fillFormAndFinish(firstNameStr, lastNameStr, emailStr, licensePlateStr, stateStr)
+                            return
+            except Exception as e:
+                print(repr(e))
+                print(traceback.print_exc())
+                time.sleep(5)
+                pass
         #self.driver.close();
         
     def __goToCalendarIFrame(self):
@@ -100,19 +108,19 @@ class Reservation:
         #The calendar is a table, due to a bug there are 3 tables prev. month, curr. month and next month. so list[1] is cuurent month
         availableFlag = False
         tableList = self.driver.find_elements_by_tag_name('table')
-        
+        print("sleep now")
+        time.sleep(3)
         searchStr = dateStr
         notAvailableStr = 'Not available.'
         # Go over the table for each day
         for row in tableList[1].find_elements_by_css_selector('tr'):
             for cell in row.find_elements_by_tag_name('td'):
                 statusString = str(cell.get_attribute('aria-label'))
-#                 print(statusString)
+                print(statusString)
                 if searchStr+',' in statusString: #ensures that e.g. "January 2," is found but not "January 20,"
 #                     print('here')
                     if notAvailableStr not in statusString:
 #                         print("Ha!")
-                        cell.click()
                         cell.click()
                         availableFlag = True
                     break;
@@ -137,7 +145,7 @@ class Reservation:
         #The available ones are    "event-picker-choice"
         #The UN-available ones are "event-picker-choice disabled"
         #The selected one is       "event-picker-choice checked"
-        results = selectedElement.find_elements_by_class_name('event-picker-choice-container')
+        results = selectedElement.find_elements_by_class_name('event-picker-choice')
 #         this prints out the slots
 #         for element2 in results:
 #             temp = element2.find_element_by_tag_name('div')
@@ -145,12 +153,9 @@ class Reservation:
         slotCounter = 0
         for element2 in results:
             slotCounter +=1
-            temp = element2.find_element_by_tag_name('div')
-            if (slotCounter <= timeSlot) and ('disabled' not in  str(temp.get_attribute('class'))):
-                print('selected ', temp.text)
-                #select
-        #         driver.execute_script("arguments[0].setAttribute('class','event-picker-choice checked')", temp)
-                temp.click()#otherwise doesn't work
+            if (slotCounter <= timeSlot) and ('disabled' not in str(element2.get_attribute('class'))):
+                print('selected ', element2.get_attribute("textContent"))
+                element2.click()
                 break;
             if slotCounter == 4:
                 return False
@@ -158,7 +163,7 @@ class Reservation:
         
         # press the select button and go to next screen
         #Press the button for next menu
-        bttn = selectedElement.find_element_by_class_name("event-picker-button")
+        bttn = self.driver.find_element_by_class_name("event-picker-button")
         bttn.click()
         time.sleep(2) #<todo> poll if passed to ext 
         # press the 'book now' button in the new stupid window
@@ -207,5 +212,22 @@ class Reservation:
         time.sleep(10)
         return True
 
-if __name__ == "__main__": 
-    reservation = Reservation(firstNameStr, lastNameStr,emailStr,licensePlateStr,stateStr,dateStr,timeSlot)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Get parking.')
+    parser.add_argument('--first_name', type=str, required=True)
+    parser.add_argument('--last_name', type=str, required=True)
+    parser.add_argument('--email', type=str, required=True)
+    parser.add_argument('--license_plate', type=str, required=True)
+    parser.add_argument('--state', type=str, required=True)
+    parser.add_argument('--date', type=str, required=True)
+    parser.add_argument('--time_slot', type=int, required=True)
+    args = parser.parse_args()
+    
+    reservation = Reservation(
+        args.first_name,
+        args.last_name,
+        args.email,
+        args.license_plate,
+        args.state,
+        args.date,
+        args.time_slot)
