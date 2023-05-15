@@ -4,7 +4,7 @@
 #firstNameStr = 'Tracy'
 #lastNameStr = 'Transfer'
 #emailStr = 'tracy.transfer@gmail.com'
-#licensePlateStr = 'BGXU31'
+#licensePlateStr = 'asd234'
 #stateStr = 'colorado'
 #
 ##This is the desired date important month first number last. Does not validate anything - just trusts user
